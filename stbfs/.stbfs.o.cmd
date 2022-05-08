@@ -1,0 +1,1 @@
+cmd_/usr/src/hw2-mrai/fs/stbfs/stbfs.o := ld -m elf_x86_64  -z max-page-size=0x200000    -r -o /usr/src/hw2-mrai/fs/stbfs/stbfs.o /usr/src/hw2-mrai/fs/stbfs/dentry.o /usr/src/hw2-mrai/fs/stbfs/file.o /usr/src/hw2-mrai/fs/stbfs/inode.o /usr/src/hw2-mrai/fs/stbfs/main.o /usr/src/hw2-mrai/fs/stbfs/super.o /usr/src/hw2-mrai/fs/stbfs/lookup.o /usr/src/hw2-mrai/fs/stbfs/mmap.o

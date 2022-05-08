@@ -1,0 +1,128 @@
+CSE 506 - HOMEWORK 2
+======================
+Author : Mallika Rai
+
+-----------------
+PROBLEM STATEMENT
+-----------------
+The objective of this assignment is to develop a stackable file system called "secure trash-bin file system" (stbfs), which supports securely deleting files.
+
+
+-----------------------------
+FEATURES SUPPORTED BY STBFS
+-----------------------------
+The following features are supported by the file system for both root and non-root users :              
+1. Unlink (Delete) file in mounted directory and move to .stb trash bin 
+    Command : rm /mnt/stbfs/<file_name>
+2. Permanently delete file if file provided is already present in .stb
+    Command : rm /mnt/stbfs/.stb/<file_name>
+3. Undelete file present in .stb trash bin and move to current working directory
+    Command : ./stbfsctl -u <file_name>
+4. Prevent users from changing file permission in .stb trash bin 
+    Command : chmod 777 /mnt/stbfs/.stb/<file_name>
+5. Allow users to list only files in .stb containing their user_id (readdir)
+    Command : ls /mnt/stbfs/.stb
+6. Prevent user from writing/truncating the file 
+    Command : vi /mnt/stbfs/.stb/<file_name>
+7. Encrypt/Decrypt files while moving to and from .stb trash bin. The ecryption key is provided as a parameter while mounting the stbfs file system
+
+
+---------------------------------
+FILES INCLUDED IN THE SUBMISSION
+---------------------------------
+Within hw2-mrai/CSE-506 :
+- Makefile : contains C commands to compile and run the user and kernel programs
+- kernel.config : contains the kernel configuration (~1200 configurations)
+- stbfsctl.c : user file for triggering "undelete" ioctl
+- install_module.h : responsible for loading and unloading the kernel module
+- README: Outlines the design of the file system, steps and necessary information on how to run the modules
+- testdir : test directory containing 5 shell scripts to test the aforementioned features
+Within hw2-mrai/fs: 
+- stbfs : stbfs file system implementation 
+
+-----------------------------------
+STEPS TO RUN/TEST STBFS FILE SYSTEM 
+-----------------------------------
+
+Run the following linux commands with root privileges:
+1. Inside /usr/src/hw1-mrai/CSE-506/ : 
+    - run the 'make' command to compile and build the user code and produce stbfsctl executable
+2. Inside /usr/src/hw1-mrai/fs/stbfs/ : 
+    - run the 'make' command to compile and build the kernel code 
+3. install the kernel module using command 'insmod stbfs.ko'
+4. mkdir /usr/src/parent
+5. mkdir /usr/src/parent/.stb
+6. mkdir /mnt/stbfs
+7. Mount the stbfs file system on /usr/src/parent using one of the following commands: 
+    - mount -t stbfs /usr/src/parent/ /mnt/stbfs
+    - mount -t stbfs -o enc=MySecretPa55 /usr/src/parent/ /mnt/stbfs
+8. run one of the commands listed in the "FEATURES SUPPORTED BY STBFS" section above 
+
+
+---------
+DESIGN
+---------
+The stbfs file system layer, mounted on top of lower file system, acts as in intermediate between the kernel's vfs layer and underlying file system and can be used to augment a file system with features in addition to those provided by underlying file system. 
+Building the secure trash bin file system (STBFS) involved several design considerations listed be below:
+
+1. FILE NAMING : When deleting/unlinking a file, a corresponding file is created in .stb with the same file name prefixed with a timestamp for uniqueness and suffixed with the user id of the user calling the delete operation for comparison and access in the future.
+
+2. LS FILES IN A DIRECTORY: 
+Based on a comparison between the id of the user executing the command, and the id contained in the file names in .stb, files are made visible to the user when a user tries to list all the files in .stb. 
+    - Root user can view all the files
+    - Non-root user can only view files containing their id
+Outside .stb directory, all files can be listed and are visible to all root and non-root users
+
+3. RESTORING/UNDELETING FILES: For simplicity, when a user undeletes a file, the restored file is created in the user's current working directory
+
+4. CHMOD/CHOWN : Inside .stb directory, permission change using chmod and chown commands are restricted for all users including root, as it could result in unexpected behavior during user id comparison
+
+5. BLOCK WRITE/TRUNC IN .stb : In order to prevent a user from modifying/writing/truncating deleted files, a check has been introduced in the stbfs_write method to see if the file in question is present in .stb folder. If so, -EPERM error is returned. This applies to all, root and non-root users. 
+
+6. RENAMEING FILES IN .stb : Renaming files within .stb directory is forbidden for all users as the user could rename a file to contain a different user which could result in unexpected behavior during restore or file loss.
+
+7. ENCRYPTING FILES WHILE DELETING: At mount time, encryption key may be provided using the following command. This fixed key is stored on the kernel side and used to encrypt files while unlinking and decrypt while undeleting.
+Command : mount -t stbfs -o enc=MySecretPa55 /some/lower/path /mnt/stbfs 
+
+8. MOUNTED ROOT PATH IN SUPERBLOCK : For the purpose of creating and deleting files in the .stb directory, relative to the mounted root path, the path needed to be maintained. This path is determined at mount time from the raw data as part of the command, and a pointer to root path is stored as part of the stbfs_sb_info structure. The stbfs_sb_info struct has been modified to the following, for ease of access throughout the program. 
+            struct stbfs_sb_info {
+                struct super_block *lower_sb;
+                char *root_path;
+            };
+
+
+-------
+TESTING
+-------
+The 5 test files, residing in the testdir within CSE506, test the following: 
+test01.sh: Check if non-root user is able to lookup root files in .stb directory
+test02.sh: Test to check flag combinations
+test03.sh: Ecryption/Decryption Password validation check
+test04.sh: Check if input output files are the same
+test05.sh: Test syscall for files across different directories
+
+-----------
+REFERENCES:
+----------- 
+
+1. https://www.kernel.org/doc/Documentation/filesystems/vfs.txt
+2. https://stackoverflow.com/questions/5077192/how-to-get-current-hour-time-of-day-in-linux-kernel-space
+3. https://tuxthink.blogspot.com/2011/12/module-to-display-current-working.html 
+4. https://www.linuxjournal.com/article/6485
+5. https://riptutorial.com/c/example/3250/calling-a-function-from-another-c-file 
+6. https://diveintosystems.org/book/C2-C_depth/advanced_writing_libraries.html 
+7. https://stackoverflow.com/questions/14097389/how-to-get-userid-when-writing-linux-kernel-module
+8. https://elixir.bootlin.com/linux/v4.8/source/include/linux/fs.h#L1644 
+9. https://stackoverflow.com/questions/29458157/how-to-get-a-file-list-from-a-directory-inside-the-linux-kernel
+10. https://www.apriorit.com/dev-blog/279-driver-to-hide-files-linux 
+11. https://www.opensourceforu.com/2011/08/io-control-in-linux/
+12. https://tldp.org/LDP/lkmpg/2.4/html/x856.html
+13. https://www.techiedelight.com/implement-substr-function-c/
+14. https://elixir.bootlin.com/linux/latest/source/fs/ecryptfs
+
+
+------------
+EXTRA CREDIT
+------------
+Secure deletion: 
+For a given file existing in the .stb folder, owned by the user, first you overwrite the file with all zeros, from the very first byte till the last byte, and then unlink the file.

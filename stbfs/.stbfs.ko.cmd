@@ -1,0 +1,1 @@
+cmd_/usr/src/hw2-mrai/fs/stbfs/stbfs.ko := ld -r -m elf_x86_64  -z max-page-size=0x200000  --build-id  -T ./scripts/module-common.lds -o /usr/src/hw2-mrai/fs/stbfs/stbfs.ko /usr/src/hw2-mrai/fs/stbfs/stbfs.o /usr/src/hw2-mrai/fs/stbfs/stbfs.mod.o;  true
